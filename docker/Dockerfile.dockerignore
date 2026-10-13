@@ -1,0 +1,5 @@
+# allowlist - nothing else (.env, tfstate, keys...) can end up in a layer
+*
+!app/package.json
+!app/server.js
+!app/package-lock.json
