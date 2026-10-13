@@ -1,0 +1,11 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: testing-node-server
+spec:
+  # spot interruptions take one pod at a time
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: testing-node-server
+  unhealthyPodEvictionPolicy: AlwaysAllow

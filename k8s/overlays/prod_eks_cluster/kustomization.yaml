@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: testing-node-server
+resources:
+  - ../../base
+  - deployment-ondemand.yaml
+  - ingress.yaml
+  - networkpolicy-aws.yaml
+  - secretproviderclass.yaml
+patches:
+  - path: namespace-patch.yaml
+  - path: deployment-spot-patch.yaml
+  - path: hpa-patch.yaml
+# pin by digest, not tag
+images:
+  - name: testing-node-server
+    newName: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/testing-node-server
+    digest: sha256:REPLACE_WITH_IMAGE_DIGEST

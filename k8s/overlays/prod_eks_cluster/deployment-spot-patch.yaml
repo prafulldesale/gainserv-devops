@@ -1,0 +1,50 @@
+# base deployment becomes the spot / burst one (HPA scales this)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: testing-node-server
+spec:     # spot nodes scheduling
+  selector:
+    matchLabels:
+      capacity: spot
+  template:
+    metadata:
+      labels:
+        capacity: spot
+    spec:
+      affinity:
+        nodeAffinity:
+          # any arch, image is multi-arch
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values: [amd64, arm64]
+                  - key: karpenter.sh/nodepool
+                    operator: In
+                    values: [general]
+          # preferred, not required - falls back to on-demand when spot capacity is gone
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: karpenter.sh/capacity-type
+                    operator: In
+                    values: [spot]
+      # ScheduleAnyway on purpose, don't want spread rules to block scale-up
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: testing-node-server
+              capacity: spot
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: testing-node-server
+              capacity: spot

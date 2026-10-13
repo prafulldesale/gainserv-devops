@@ -1,0 +1,20 @@
+# on kind the only client is the load generator pod (see README)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-from-loadtest
+spec:
+  podSelector:
+    matchLabels:
+      app: testing-node-server
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: loadtest
+          podSelector:
+            matchLabels:
+              role: loadgen
+      ports:
+        - { protocol: TCP, port: 3000 }

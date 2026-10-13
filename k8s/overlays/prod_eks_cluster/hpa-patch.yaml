@@ -1,0 +1,9 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: testing-node-server
+spec:
+  # on-demand deployment is the real floor; HPA can't go to 0
+  minReplicas: 1
+  # +2 on-demand = 20
+  maxReplicas: 18

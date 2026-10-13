@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: testing-node-server-ondemand
+spec:
+  # not managed by the HPA
+  replicas: 2
+  revisionHistoryLimit: 5
+  minReadySeconds: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0       # zero-downtime deploys
+      maxSurge: 25%           # Add up to 25% extra pods at a time during a rollout.
+  selector:
+    matchLabels:
+      app: testing-node-server
+      capacity: on-demand
+  template:
+    metadata:
+      labels:
+        app: testing-node-server
+        capacity: on-demand
+    spec:
+      serviceAccountName: testing-node-server
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:         # Non-root 
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      # on-demand nodes only, any arch
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: karpenter.sh/capacity-type
+                    operator: In
+                    values: [on-demand]
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values: [amd64, arm64]
+                  - key: karpenter.sh/nodepool
+                    operator: In
+                    values: [general]
+      topologySpreadConstraints:       # Hard rule: the 2 replicas must be in 2 different AZs.
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: testing-node-server
+              capacity: on-demand
+      containers:
+        - name: app
+          image: testing-node-server
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=64
+          resources:
+            requests:
+              cpu: 500m
+              memory: 128Mi
+            # node is single threaded, more than 1 core is wasted
+            limits:
+              cpu: "1"
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            privileged: false
+            capabilities:
+              drop: [ALL]
+          # /healthz shares the event loop with /compute, so it's slow under load - don't be too strict
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          # deliberately lax (~60s). restarting a busy pod just pushes load onto the others
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          lifecycle:
+            # app has no SIGTERM handling. keep serving while the ALB/endpoints drain us
+            preStop:
+              sleep:
+                seconds: 20

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: testing-node-server
+spec:
+  type: ClusterIP
+  selector:
+    app: testing-node-server
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
