@@ -1,0 +1,33 @@
+# quick local run of the container, same restrictions as the k8s pod
+services:
+  app:
+    image: testing-node-server:local
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        NODE_VERSION: "24.21.0"
+        ALPINE_VERSION: "3.24"
+    # localhost only, not reachable from the rest of the network
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    # node's built-in fetch, so the check doesn't depend on wget being in the image
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
